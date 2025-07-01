@@ -131,8 +131,10 @@
   <h2>Environmental Monitoring Dashboard</h2>
 
   <div class="controls">
-    <label for="dateFilter">Filter Date:</label>
-    <input type="date" id="dateFilter">
+    <label>From:</label>
+    <input type="date" id="fromDate">
+    <label>To:</label>
+    <input type="date" id="toDate">
     <button onclick="downloadCSV()">Download CSV</button>
   </div>
 
@@ -161,10 +163,12 @@
   <script>
     const apiURL = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=8000";
     const tableBody = document.querySelector("#data-table tbody");
-    const dateFilter = document.getElementById("dateFilter");
+    const fromDateInput = document.getElementById("fromDate");
+    const toDateInput = document.getElementById("toDate");
     const pagination = document.getElementById("pagination");
     const rowsPerPage = 100;
     let allRows = [];
+    let filteredRows = [];
     let currentPage = 1;
     let sortDir = true;
 
@@ -174,6 +178,26 @@
         timeZone: "Asia/Dhaka",
         hour12: false
       }).replace(",", "");
+    }
+
+    function formatDate(inputDate) {
+      const [yyyy, mm, dd] = inputDate.split("-");
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
+    function filterRows() {
+      const from = fromDateInput.value;
+      const to = toDateInput.value;
+      filteredRows = allRows.filter(row => {
+        const [day, month, year] = row[1].split(" ")[0].split("/");
+        const rowDate = new Date(`${year}-${month}-${day}`);
+        const fromDate = from ? new Date(from) : null;
+        const toDate = to ? new Date(to) : null;
+
+        if (fromDate && rowDate < fromDate) return false;
+        if (toDate && rowDate > toDate) return false;
+        return true;
+      });
     }
 
     function fetchData() {
@@ -192,24 +216,17 @@
             feed.field6 || "-",
             feed.field7 || "-",
             feed.field8 || "-"
-          ]).filter(row => {
-            const selectedDate = dateFilter.value;
-            return !selectedDate || row[1].startsWith(formatDate(selectedDate));
-          });
+          ]);
+          filterRows();
           currentPage = 1;
           renderTable();
         })
         .catch(err => console.error("Error fetching data", err));
     }
 
-    function formatDate(inputDate) {
-      const [yyyy, mm, dd] = inputDate.split("-");
-      return `${dd}/${mm}/${yyyy}`;
-    }
-
     function renderTable() {
       const start = (currentPage - 1) * rowsPerPage;
-      const rows = allRows.slice(start, start + rowsPerPage);
+      const rows = filteredRows.slice(start, start + rowsPerPage);
       tableBody.innerHTML = "";
       rows.forEach(row => {
         const tr = document.createElement("tr");
@@ -220,7 +237,7 @@
     }
 
     function renderPagination() {
-      const pageCount = Math.ceil(allRows.length / rowsPerPage);
+      const pageCount = Math.ceil(filteredRows.length / rowsPerPage);
       pagination.innerHTML = "";
       for (let i = 1; i <= pageCount; i++) {
         const btn = document.createElement("button");
@@ -235,7 +252,7 @@
     }
 
     function sortTable(col) {
-      allRows.sort((a, b) => {
+      filteredRows.sort((a, b) => {
         const aVal = a[col], bVal = b[col];
         const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
         if (!isNaN(aNum) && !isNaN(bNum)) {
@@ -249,13 +266,13 @@
     }
 
     function downloadCSV() {
-      const rows = [["Entry ID", "Timestamp", "UV", "PM1.0", "PM2.5", "PM4.0", "PM10", "NC0.5", "NC1.0", "Particle Size"], ...allRows];
+      const rows = [["Entry ID", "Timestamp", "UV", "PM1.0", "PM2.5", "PM4.0", "PM10", "NC0.5", "NC1.0", "Particle Size"], ...filteredRows];
       const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "Environmental_Data.csv";
+      a.download = "Filtered_Environmental_Data.csv";
       a.click();
       URL.revokeObjectURL(url);
     }
@@ -264,7 +281,18 @@
       document.body.classList.toggle("dark", e.target.checked);
     });
 
-    dateFilter.addEventListener("change", fetchData);
+    fromDateInput.addEventListener("change", () => {
+      filterRows();
+      currentPage = 1;
+      renderTable();
+    });
+
+    toDateInput.addEventListener("change", () => {
+      filterRows();
+      currentPage = 1;
+      renderTable();
+    });
+
     setInterval(fetchData, 30000);
     window.onload = fetchData;
   </script>
