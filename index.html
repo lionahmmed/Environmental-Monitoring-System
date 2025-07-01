@@ -161,11 +161,11 @@
   <div class="pagination" id="pagination"></div>
 
   <script>
-    const apiURL = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=1000";
+    const apiURL = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=8000";
     const tableBody = document.querySelector("#data-table tbody");
     const dateFilter = document.getElementById("dateFilter");
     const pagination = document.getElementById("pagination");
-    const rowsPerPage = 20;
+    const rowsPerPage = 100;
     let allRows = [];
     let currentPage = 1;
     let sortDir = true;
