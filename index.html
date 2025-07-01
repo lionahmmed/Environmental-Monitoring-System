@@ -152,9 +152,7 @@
           <th onclick="sortTable(9)">Particle Size</th>
         </tr>
       </thead>
-      <tbody>
-        <!-- Data rows -->
-      </tbody>
+      <tbody></tbody>
     </table>
   </div>
 
@@ -170,14 +168,22 @@
     let currentPage = 1;
     let sortDir = true;
 
+    function toBDTime(utcString) {
+      const date = new Date(utcString);
+      return date.toLocaleString("en-GB", {
+        timeZone: "Asia/Dhaka",
+        hour12: false
+      }).replace(",", "");
+    }
+
     function fetchData() {
       fetch(apiURL)
         .then(res => res.json())
         .then(data => {
-          const feeds = data.feeds.reverse(); // Show latest first
+          const feeds = data.feeds.reverse();
           allRows = feeds.map(feed => [
             feed.entry_id,
-            feed.created_at,
+            toBDTime(feed.created_at),
             feed.field1 || "-",
             feed.field2 || "-",
             feed.field3 || "-",
@@ -188,12 +194,17 @@
             feed.field8 || "-"
           ]).filter(row => {
             const selectedDate = dateFilter.value;
-            return !selectedDate || row[1].startsWith(selectedDate);
+            return !selectedDate || row[1].startsWith(formatDate(selectedDate));
           });
           currentPage = 1;
           renderTable();
         })
         .catch(err => console.error("Error fetching data", err));
+    }
+
+    function formatDate(inputDate) {
+      const [yyyy, mm, dd] = inputDate.split("-");
+      return `${dd}/${mm}/${yyyy}`;
     }
 
     function renderTable() {
