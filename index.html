@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>ThingSpeak Channel Data (All 8 Fields)</title>
+  <title>Environmental Monitoring System</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -77,7 +77,7 @@
   <script>
     const apiKey = "FANJE0FE8G3O53WH";
     const channelID = "3000897";
-    const maxResultsPerPage = 8000;
+    const maxResultsPerPage = 100;
     const tableBody = document.querySelector("#data-table tbody");
 
     async function fetchAllPages(page = 1) {
