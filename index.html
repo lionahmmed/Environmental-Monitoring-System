@@ -2,19 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Environmental Monitoring System</title>
+  <title>Environmental Monitoring Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    :root {
+      --bg: #f4f4f4;
+      --text: #000;
+      --card: #fff;
+      --hover: #f1f1f1;
+      --header: #eee;
+    }
+
+    body.dark {
+      --bg: #121212;
+      --text: #fff;
+      --card: #1e1e1e;
+      --hover: #2c2c2c;
+      --header: #2a2a2a;
+    }
+
     body {
       font-family: Arial, sans-serif;
-      background: #f4f4f4;
+      background: var(--bg);
+      color: var(--text);
       margin: 0;
       padding: 20px;
     }
 
     h2 {
       text-align: center;
-      color: #333;
     }
 
     .controls {
@@ -27,7 +43,7 @@
 
     .table-container {
       overflow-x: auto;
-      background: white;
+      background: var(--card);
       padding: 10px;
       border-radius: 10px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
@@ -37,26 +53,25 @@
       width: 100%;
       border-collapse: collapse;
       min-width: 1000px;
-      cursor: default;
     }
 
     th, td {
-      border: 1px solid #ddd;
+      border: 1px solid #444;
       padding: 8px;
       text-align: center;
     }
 
     th {
-      background-color: #eee;
+      background-color: var(--header);
       cursor: pointer;
     }
 
     tr:nth-child(even) {
-      background-color: #f9f9f9;
+      background-color: var(--hover);
     }
 
     tr:hover {
-      background-color: #f1f1f1;
+      background-color: #9991;
     }
 
     button {
@@ -78,15 +93,42 @@
       border: 1px solid #ccc;
     }
 
+    .pagination {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+      gap: 8px;
+    }
+
+    .pagination button {
+      background: #555;
+    }
+
+    .pagination button.active {
+      background: #007bff;
+    }
+
+    .toggle-dark {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+    }
+
     @media (max-width: 768px) {
       table, th, td {
-        font-size: 14px;
+        font-size: 13px;
       }
     }
   </style>
 </head>
 <body>
-  <h2>Environmental Monitoring System</h2>
+  <div class="toggle-dark">
+    <label>
+      <input type="checkbox" id="darkToggle"> Dark Mode
+    </label>
+  </div>
+
+  <h2>Environmental Monitoring Dashboard</h2>
 
   <div class="controls">
     <label for="dateFilter">Filter Date:</label>
@@ -111,89 +153,108 @@
         </tr>
       </thead>
       <tbody>
-        <!-- Data will be inserted here -->
+        <!-- Data rows -->
       </tbody>
     </table>
   </div>
 
+  <div class="pagination" id="pagination"></div>
+
   <script>
-    const url = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=100";
+    const apiURL = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=1000";
+    const tableBody = document.querySelector("#data-table tbody");
+    const dateFilter = document.getElementById("dateFilter");
+    const pagination = document.getElementById("pagination");
+    const rowsPerPage = 20;
+    let allRows = [];
+    let currentPage = 1;
+    let sortDir = true;
 
     function fetchData() {
-      fetch(url)
-        .then(response => response.json())
+      fetch(apiURL)
+        .then(res => res.json())
         .then(data => {
-          const feeds = data.feeds;
-          const tbody = document.querySelector("#data-table tbody");
-          const filterDate = document.getElementById("dateFilter").value;
-          tbody.innerHTML = "";
-
-          feeds.forEach(feed => {
-            const dateOnly = feed.created_at.slice(0, 10);
-            if (!filterDate || filterDate === dateOnly) {
-              const row = document.createElement("tr");
-              row.innerHTML = `
-                <td>${feed.entry_id}</td>
-                <td>${feed.created_at}</td>
-                <td>${feed.field1 || "-"}</td>
-                <td>${feed.field2 || "-"}</td>
-                <td>${feed.field3 || "-"}</td>
-                <td>${feed.field4 || "-"}</td>
-                <td>${feed.field5 || "-"}</td>
-                <td>${feed.field6 || "-"}</td>
-                <td>${feed.field7 || "-"}</td>
-                <td>${feed.field8 || "-"}</td>
-              `;
-              tbody.appendChild(row);
-            }
+          const feeds = data.feeds.reverse(); // Show latest first
+          allRows = feeds.map(feed => [
+            feed.entry_id,
+            feed.created_at,
+            feed.field1 || "-",
+            feed.field2 || "-",
+            feed.field3 || "-",
+            feed.field4 || "-",
+            feed.field5 || "-",
+            feed.field6 || "-",
+            feed.field7 || "-",
+            feed.field8 || "-"
+          ]).filter(row => {
+            const selectedDate = dateFilter.value;
+            return !selectedDate || row[1].startsWith(selectedDate);
           });
+          currentPage = 1;
+          renderTable();
         })
-        .catch(error => console.error("Error fetching data:", error));
+        .catch(err => console.error("Error fetching data", err));
+    }
+
+    function renderTable() {
+      const start = (currentPage - 1) * rowsPerPage;
+      const rows = allRows.slice(start, start + rowsPerPage);
+      tableBody.innerHTML = "";
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = row.map(cell => `<td>${cell}</td>`).join("");
+        tableBody.appendChild(tr);
+      });
+      renderPagination();
+    }
+
+    function renderPagination() {
+      const pageCount = Math.ceil(allRows.length / rowsPerPage);
+      pagination.innerHTML = "";
+      for (let i = 1; i <= pageCount; i++) {
+        const btn = document.createElement("button");
+        btn.textContent = i;
+        if (i === currentPage) btn.classList.add("active");
+        btn.onclick = () => {
+          currentPage = i;
+          renderTable();
+        };
+        pagination.appendChild(btn);
+      }
+    }
+
+    function sortTable(col) {
+      allRows.sort((a, b) => {
+        const aVal = a[col], bVal = b[col];
+        const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortDir ? aNum - bNum : bNum - aNum;
+        } else {
+          return sortDir ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+        }
+      });
+      sortDir = !sortDir;
+      renderTable();
     }
 
     function downloadCSV() {
-      const rows = [...document.querySelectorAll("table tr")];
-      const csv = rows.map(row => {
-        const cols = [...row.querySelectorAll("th, td")];
-        return cols.map(col => `"${col.innerText}"`).join(",");
-      }).join("\n");
-
+      const rows = [["Entry ID", "Timestamp", "UV", "PM1.0", "PM2.5", "PM4.0", "PM10", "NC0.5", "NC1.0", "Particle Size"], ...allRows];
+      const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
       const blob = new Blob([csv], { type: "text/csv" });
-      const url = window.URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "Environmental_Data.csv";
+      a.download = "thingspeak_data.csv";
       a.click();
-      window.URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
     }
 
-    let sortDirection = true;
-    function sortTable(colIndex) {
-      const table = document.getElementById("data-table");
-      const tbody = table.tBodies[0];
-      const rows = Array.from(tbody.rows);
+    document.getElementById("darkToggle").addEventListener("change", (e) => {
+      document.body.classList.toggle("dark", e.target.checked);
+    });
 
-      rows.sort((a, b) => {
-        const aText = a.cells[colIndex].innerText;
-        const bText = b.cells[colIndex].innerText;
-        const aNum = parseFloat(aText);
-        const bNum = parseFloat(bText);
-
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-          return sortDirection ? aNum - bNum : bNum - aNum;
-        } else {
-          return sortDirection
-            ? aText.localeCompare(bText)
-            : bText.localeCompare(aText);
-        }
-      });
-
-      sortDirection = !sortDirection;
-      rows.forEach(row => tbody.appendChild(row));
-    }
-
-    document.getElementById("dateFilter").addEventListener("change", fetchData);
-    setInterval(fetchData, 30000); // Refresh every 30s
+    dateFilter.addEventListener("change", fetchData);
+    setInterval(fetchData, 30000);
     window.onload = fetchData;
   </script>
 </body>
