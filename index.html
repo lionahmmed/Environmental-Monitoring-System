@@ -17,14 +17,16 @@
       color: #333;
     }
 
-    .filter-container {
-      text-align: center;
-      margin-bottom: 10px;
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 15px;
     }
 
     .table-container {
       overflow-x: auto;
-      margin-top: 20px;
       background: white;
       padding: 10px;
       border-radius: 10px;
@@ -35,6 +37,7 @@
       width: 100%;
       border-collapse: collapse;
       min-width: 1000px;
+      cursor: default;
     }
 
     th, td {
@@ -45,6 +48,7 @@
 
     th {
       background-color: #eee;
+      cursor: pointer;
     }
 
     tr:nth-child(even) {
@@ -55,13 +59,23 @@
       background-color: #f1f1f1;
     }
 
-    iframe {
-      display: block;
-      margin: 30px auto;
+    button {
+      padding: 6px 14px;
       border: none;
-      width: 100%;
-      max-width: 700px;
-      height: 260px;
+      background-color: #007bff;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    input[type="date"] {
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
     }
 
     @media (max-width: 768px) {
@@ -74,37 +88,33 @@
 <body>
   <h2>Environmental Monitoring System</h2>
 
-  <div class="filter-container">
-    <label for="dateFilter">Filter by Date (YYYY-MM-DD): </label>
+  <div class="controls">
+    <label for="dateFilter">Filter Date:</label>
     <input type="date" id="dateFilter">
+    <button onclick="downloadCSV()">Download CSV</button>
   </div>
 
   <div class="table-container">
     <table id="data-table">
       <thead>
         <tr>
-          <th>Entry ID</th>
-          <th>Timestamp</th>
-          <th>UV</th>
-          <th>PM 1.0</th>
-          <th>PM 2.5</th>
-          <th>PM 4.0</th>
-          <th>PM 10.0</th>
-          <th>NC 0.5</th>
-          <th>NC 1.0</th>
-          <th>Particle Size</th>
+          <th onclick="sortTable(0)">Entry ID</th>
+          <th onclick="sortTable(1)">Timestamp</th>
+          <th onclick="sortTable(2)">UV</th>
+          <th onclick="sortTable(3)">PM 1.0</th>
+          <th onclick="sortTable(4)">PM 2.5</th>
+          <th onclick="sortTable(5)">PM 4.0</th>
+          <th onclick="sortTable(6)">PM 10.0</th>
+          <th onclick="sortTable(7)">NC 0.5</th>
+          <th onclick="sortTable(8)">NC 1.0</th>
+          <th onclick="sortTable(9)">Particle Size</th>
         </tr>
       </thead>
       <tbody>
-        <!-- Data rows will be inserted here -->
+        <!-- Data will be inserted here -->
       </tbody>
     </table>
   </div>
-
-  <h3 style="text-align:center;">Live Charts</h3>
-  <iframe src="https://thingspeak.com/channels/3000897/charts/1?bgcolor=%23ffffff&color=%23d62020&dynamic=true" allowfullscreen></iframe>
-  <iframe src="https://thingspeak.com/channels/3000897/charts/2?bgcolor=%23ffffff&color=%2300aaff&dynamic=true" allowfullscreen></iframe>
-  <iframe src="https://thingspeak.com/channels/3000897/charts/5?bgcolor=%23ffffff&color=%2300aa00&dynamic=true" allowfullscreen></iframe>
 
   <script>
     const url = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=100";
@@ -116,7 +126,7 @@
           const feeds = data.feeds;
           const tbody = document.querySelector("#data-table tbody");
           const filterDate = document.getElementById("dateFilter").value;
-          tbody.innerHTML = ""; // Clear table
+          tbody.innerHTML = "";
 
           feeds.forEach(feed => {
             const dateOnly = feed.created_at.slice(0, 10);
@@ -138,13 +148,52 @@
             }
           });
         })
-        .catch(error => {
-          console.error("Error fetching data:", error);
-        });
+        .catch(error => console.error("Error fetching data:", error));
+    }
+
+    function downloadCSV() {
+      const rows = [...document.querySelectorAll("table tr")];
+      const csv = rows.map(row => {
+        const cols = [...row.querySelectorAll("th, td")];
+        return cols.map(col => `"${col.innerText}"`).join(",");
+      }).join("\n");
+
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "thingspeak_data.csv";
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+
+    let sortDirection = true;
+    function sortTable(colIndex) {
+      const table = document.getElementById("data-table");
+      const tbody = table.tBodies[0];
+      const rows = Array.from(tbody.rows);
+
+      rows.sort((a, b) => {
+        const aText = a.cells[colIndex].innerText;
+        const bText = b.cells[colIndex].innerText;
+        const aNum = parseFloat(aText);
+        const bNum = parseFloat(bText);
+
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortDirection ? aNum - bNum : bNum - aNum;
+        } else {
+          return sortDirection
+            ? aText.localeCompare(bText)
+            : bText.localeCompare(aText);
+        }
+      });
+
+      sortDirection = !sortDirection;
+      rows.forEach(row => tbody.appendChild(row));
     }
 
     document.getElementById("dateFilter").addEventListener("change", fetchData);
-    setInterval(fetchData, 30000); // Auto-refresh every 30 seconds
+    setInterval(fetchData, 30000); // Refresh every 30s
     window.onload = fetchData;
   </script>
 </body>
