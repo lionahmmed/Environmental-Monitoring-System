@@ -306,22 +306,25 @@
       renderTable();
     }
 
-    function prepareChartData() {
-      chartLabels.length = 0;
-      for (const key in chartData) chartData[key].length = 0;
+function prepareChartData() {
+  chartLabels.length = 0;
+  for (const key in chartData) chartData[key].length = 0;
 
-      filteredRows.forEach(row => {
-        chartLabels.push(row[1]);
-        chartData.uv.push(parseFloat(row[2]) || null);
-        chartData.pm1.push(parseFloat(row[3]) || null);
-        chartData.pm25.push(parseFloat(row[4]) || null);
-        chartData.pm4.push(parseFloat(row[5]) || null);
-        chartData.pm10.push(parseFloat(row[6]) || null);
-        chartData.nc05.push(parseFloat(row[7]) || null);
-        chartData.nc1.push(parseFloat(row[8]) || null);
-        chartData.particle.push(parseFloat(row[9]) || null);
-      });
-    }
+  const last20 = filteredRows.slice(-20);  // 👈 Only the last 20 entries
+
+  last20.forEach(row => {
+    chartLabels.push(row[1]);
+    chartData.uv.push(parseFloat(row[2]) || null);
+    chartData.pm1.push(parseFloat(row[3]) || null);
+    chartData.pm25.push(parseFloat(row[4]) || null);
+    chartData.pm4.push(parseFloat(row[5]) || null);
+    chartData.pm10.push(parseFloat(row[6]) || null);
+    chartData.nc05.push(parseFloat(row[7]) || null);
+    chartData.nc1.push(parseFloat(row[8]) || null);
+    chartData.particle.push(parseFloat(row[9]) || null);
+  });
+}
+
 
     let charts = [];
 
