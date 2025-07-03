@@ -314,7 +314,7 @@ function prepareChartData() {
 
   last20.forEach(row => {
     chartLabels.push(row[1]);
-
+    chartData.uv.push(parseFloat(row[2]) || null);
     chartData.pm1.push(parseFloat(row[3]) || null);
     chartData.pm25.push(parseFloat(row[4]) || null);
     chartData.pm4.push(parseFloat(row[5]) || null);
@@ -333,7 +333,7 @@ function prepareChartData() {
       charts = [];
 
       const datasets = {
-  
+        uv: { label: "UV", color: "purple" },
         pm1: { label: "PM1.0", color: "orange" },
         pm25: { label: "PM2.5", color: "red" },
         pm4: { label: "PM4.0", color: "green" },
