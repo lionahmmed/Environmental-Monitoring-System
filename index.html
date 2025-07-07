@@ -194,7 +194,7 @@
       const to = toDateInput.value;
       filteredRows = allRows.filter(row => {
         const [day, month, year] = row[1].split(" ")[0].split("/");
-        const rowDate = new Date(${year}-${month}-${day});
+        const rowDate = new Date(`${year}-${month}-${day}`);
         if (from && rowDate < new Date(from)) return false;
         if (to && rowDate > new Date(to)) return false;
         return true;
@@ -233,7 +233,7 @@
       tableBody.innerHTML = "";
       rows.forEach(row => {
         const tr = document.createElement("tr");
-        tr.innerHTML = row.map(cell => <td>${cell}</td>).join("");
+        tr.innerHTML = row.map(cell => `<td>${cell}</td>`).join("");
         tableBody.appendChild(tr);
       });
       renderPagination();
@@ -268,7 +268,7 @@
 
     function downloadCSV() {
       const rows = [["Entry ID", "Timestamp", "UV", "PM1.0", "PM2.5", "PM4.0", "PM10", "NC0.5", "NC1.0", "Particle Size"], ...filteredRows];
-      const csv = rows.map(r => r.map(c => "${c}").join(",")).join("\n");
+      const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
       const blob = new Blob([csv], { type: "text/csv" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -286,7 +286,7 @@
         if (isNaN(value)) return;
         const { level, color } = levelFn(value);
         const el = document.getElementById(id);
-        el.textContent = ${label}: ${value.toFixed(1)} (${level});
+        el.textContent = `${label}: ${value.toFixed(1)} (${level})`;
         el.style.backgroundColor = color;
       };
 
