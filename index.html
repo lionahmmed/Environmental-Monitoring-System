@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Environmental Monitoring Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     :root {
       --bg: #f4f4f4;
@@ -26,8 +26,13 @@
       margin: 0;
       padding: 20px;
     }
-    h2 {
+    h1, h2 {
       text-align: center;
+    }
+    .toggle-dark {
+      position: absolute;
+      top: 20px;
+      right: 20px;
     }
     .controls {
       display: flex;
@@ -35,6 +40,37 @@
       justify-content: center;
       gap: 10px;
       margin-bottom: 15px;
+    }
+    input[type="date"], button {
+      padding: 6px 14px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .status-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .status-card {
+      padding: 10px 18px;
+      border-radius: 8px;
+      background-color: #eee;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      font-weight: bold;
+      color: #fff;
+      min-width: 150px;
+      text-align: center;
     }
     .table-container {
       overflow-x: auto;
@@ -63,22 +99,6 @@
     tr:hover {
       background-color: #9991;
     }
-    button {
-      padding: 6px 14px;
-      border: none;
-      background-color: #007bff;
-      color: white;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-    input[type="date"] {
-      padding: 6px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
     .pagination {
       display: flex;
       justify-content: center;
@@ -90,11 +110,6 @@
     }
     .pagination button.active {
       background: #007bff;
-    }
-    .toggle-dark {
-      position: absolute;
-      top: 20px;
-      right: 20px;
     }
     @media (max-width: 768px) {
       table, th, td {
@@ -110,7 +125,18 @@
     </label>
   </div>
 
-  <h2>Environmental Monitoring Dashboard</h2>
+  <h1>Air Quality & Environmental Dashboard</h1>
+
+  <div class="status-summary" id="statusBox">
+    <div class="status-card" id="uvStatus">UV: -</div>
+    <div class="status-card" id="pm1Status">PM1.0: -</div>
+    <div class="status-card" id="pm25Status">PM2.5: -</div>
+    <div class="status-card" id="pm4Status">PM4.0: -</div>
+    <div class="status-card" id="pm10Status">PM10.0: -</div>
+    <div class="status-card" id="nc05Status">NC0.5: -</div>
+    <div class="status-card" id="nc1Status">NC1.0: -</div>
+    <div class="status-card" id="sizeStatus">Particle Size: -</div>
+  </div>
 
   <div class="controls">
     <label>From:</label>
@@ -143,28 +169,17 @@
   <div class="pagination" id="pagination"></div>
 
   <script>
-    const apiURL = "https://api.thingspeak.com/channels/2288702/feeds.json?api_key=2VZQPPB33FGG5IC2&results=8000";
+    const apiURL = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=8000";
     const tableBody = document.querySelector("#data-table tbody");
     const fromDateInput = document.getElementById("fromDate");
     const toDateInput = document.getElementById("toDate");
     const pagination = document.getElementById("pagination");
     const rowsPerPage = 100;
-    let allRows = [];
-    let filteredRows = [];
-    let currentPage = 1;
-    let sortDir = true;
+    let allRows = [], filteredRows = [], currentPage = 1, sortDir = true;
 
     function toBDTime(utcString) {
       const date = new Date(utcString);
-      return date.toLocaleString("en-GB", {
-        timeZone: "Asia/Dhaka",
-        hour12: false
-      }).replace(",", "");
-    }
-
-    function formatDate(inputDate) {
-      const [yyyy, mm, dd] = inputDate.split("-");
-      return `${dd}/${mm}/${yyyy}`;
+      return date.toLocaleString("en-GB", { timeZone: "Asia/Dhaka", hour12: false }).replace(",", "");
     }
 
     function filterRows() {
@@ -173,11 +188,8 @@
       filteredRows = allRows.filter(row => {
         const [day, month, year] = row[1].split(" ")[0].split("/");
         const rowDate = new Date(`${year}-${month}-${day}`);
-        const fromDate = from ? new Date(from) : null;
-        const toDate = to ? new Date(to) : null;
-
-        if (fromDate && rowDate < fromDate) return false;
-        if (toDate && rowDate > toDate) return false;
+        if (from && rowDate < new Date(from)) return false;
+        if (to && rowDate > new Date(to)) return false;
         return true;
       });
     }
@@ -202,6 +214,7 @@
           filterRows();
           currentPage = 1;
           renderTable();
+          updateStatusBoxes(filteredRows);
         })
         .catch(err => console.error("Error fetching data", err));
     }
@@ -237,11 +250,9 @@
       filteredRows.sort((a, b) => {
         const aVal = a[col], bVal = b[col];
         const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
-        if (!isNaN(aNum) && !isNaN(bNum)) {
-          return sortDir ? aNum - bNum : bNum - aNum;
-        } else {
-          return sortDir ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
-        }
+        return (!isNaN(aNum) && !isNaN(bNum))
+          ? (sortDir ? aNum - bNum : bNum - aNum)
+          : (sortDir ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal));
       });
       sortDir = !sortDir;
       renderTable();
@@ -259,21 +270,61 @@
       URL.revokeObjectURL(url);
     }
 
-    document.getElementById("darkToggle").addEventListener("change", (e) => {
+    function updateStatusBoxes(data) {
+      const latest = data[0];
+      if (!latest) return;
+
+      const uv = parseFloat(latest[2]);
+      const pm1 = parseFloat(latest[3]);
+      const pm25 = parseFloat(latest[4]);
+      const pm4 = parseFloat(latest[5]);
+      const pm10 = parseFloat(latest[6]);
+      const nc05 = parseFloat(latest[7]);
+      const nc1 = parseFloat(latest[8]);
+      const size = parseFloat(latest[9]);
+
+      const setStatus = (id, label, value, levelFn) => {
+        if (isNaN(value)) return;
+        const { level, color } = levelFn(value);
+        const el = document.getElementById(id);
+        el.textContent = `${label}: ${value.toFixed(1)} (${level})`;
+        el.style.backgroundColor = color;
+      };
+
+      const getPMLevel = v => v <= 12 ? { level: "Good", color: "#4CAF50" } :
+                             v <= 35 ? { level: "Moderate", color: "#FFC107" } :
+                             v <= 55 ? { level: "Sensitive", color: "#FF9800" } :
+                             v <= 150 ? { level: "Unhealthy", color: "#F44336" } :
+                             v <= 250 ? { level: "Very Unhealthy", color: "#9C27B0" } :
+                             { level: "Hazardous", color: "#B71C1C" };
+
+      const getUVLevel = v => v < 3 ? { level: "Low", color: "#4CAF50" } :
+                             v < 6 ? { level: "Moderate", color: "#FFC107" } :
+                             v < 8 ? { level: "High", color: "#FF9800" } :
+                             v < 11 ? { level: "Very High", color: "#F44336" } :
+                             { level: "Extreme", color: "#9C27B0" };
+
+      const getGenericLevel = v => v < 1 ? { level: "Low", color: "#4CAF50" } :
+                                  v < 5 ? { level: "Moderate", color: "#FFC107" } :
+                                  v < 15 ? { level: "Elevated", color: "#FF9800" } :
+                                  { level: "High", color: "#F44336" };
+
+      setStatus("uvStatus", "UV", uv, getUVLevel);
+      setStatus("pm1Status", "PM1.0", pm1, getPMLevel);
+      setStatus("pm25Status", "PM2.5", pm25, getPMLevel);
+      setStatus("pm4Status", "PM4.0", pm4, getPMLevel);
+      setStatus("pm10Status", "PM10.0", pm10, getPMLevel);
+      setStatus("nc05Status", "NC0.5", nc05, getGenericLevel);
+      setStatus("nc1Status", "NC1.0", nc1, getGenericLevel);
+      setStatus("sizeStatus", "Size", size, getGenericLevel);
+    }
+
+    document.getElementById("darkToggle").addEventListener("change", e => {
       document.body.classList.toggle("dark", e.target.checked);
     });
 
-    fromDateInput.addEventListener("change", () => {
-      filterRows();
-      currentPage = 1;
-      renderTable();
-    });
-
-    toDateInput.addEventListener("change", () => {
-      filterRows();
-      currentPage = 1;
-      renderTable();
-    });
+    fromDateInput.addEventListener("change", () => { filterRows(); currentPage = 1; renderTable(); });
+    toDateInput.addEventListener("change", () => { filterRows(); currentPage = 1; renderTable(); });
 
     setInterval(fetchData, 30000);
     window.onload = fetchData;
