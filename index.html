@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Air Quality Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .controls {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .status-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      justify-content: center;
+      margin: 20px 0;
+    }
+    .status-card {
+      padding: 10px 18px;
+      border-radius: 8px;
+      background-color: #eee;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+      font-weight: bold;
+      color: #fff;
+      min-width: 150px;
+      text-align: center;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: center;
+    }
+    th {
+      background-color: #4CAF50;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>Air Quality Dashboard</h1>
+
+  <div class="controls">
+    <!-- Add filters here if needed -->
+  </div>
+
+  <div class="status-summary" id="statusBox">
+    <div class="status-card" id="uvStatus">UV: -</div>
+    <div class="status-card" id="pm1Status">PM1.0: -</div>
+    <div class="status-card" id="pm25Status">PM2.5: -</div>
+    <div class="status-card" id="pm4Status">PM4.0: -</div>
+    <div class="status-card" id="pm10Status">PM10.0: -</div>
+    <div class="status-card" id="nc05Status">NC0.5: -</div>
+    <div class="status-card" id="nc1Status">NC1.0: -</div>
+    <div class="status-card" id="sizeStatus">Particle Size: -</div>
+  </div>
+
+  <table id="dataTable">
+    <thead>
+      <tr>
+        <th>Entry ID</th>
+        <th>Timestamp</th>
+        <th>UV</th>
+        <th>PM 1.0</th>
+        <th>PM 2.5</th>
+        <th>PM 4.0</th>
+        <th>PM 10.0</th>
+        <th>NC 0.5</th>
+        <th>NC 1.0</th>
+        <th>Particle Size</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const dummyData = [
+      [1, "2025-07-07 10:00:00", 2.4, 10, 42, 58, 70, 2, 4, 0.8],
+      [2, "2025-07-07 11:00:00", 6.5, 14, 50, 62, 80, 4, 6, 1.2],
+    ];
+
+    function getPMLevel(value) {
+      if (value <= 12) return { level: "Good", color: "#4CAF50" };
+      if (value <= 35) return { level: "Moderate", color: "#FFC107" };
+      if (value <= 55) return { level: "Unhealthy for Sensitive", color: "#FF9800" };
+      if (value <= 150) return { level: "Unhealthy", color: "#F44336" };
+      if (value <= 250) return { level: "Very Unhealthy", color: "#9C27B0" };
+      return { level: "Hazardous", color: "#B71C1C" };
+    }
+
+    function getUVLevel(value) {
+      if (value < 3) return { level: "Low", color: "#4CAF50" };
+      if (value < 6) return { level: "Moderate", color: "#FFC107" };
+      if (value < 8) return { level: "High", color: "#FF9800" };
+      if (value < 11) return { level: "Very High", color: "#F44336" };
+      return { level: "Extreme", color: "#9C27B0" };
+    }
+
+    function getGenericLevel(value) {
+      if (value < 1) return { level: "Low", color: "#4CAF50" };
+      if (value < 5) return { level: "Moderate", color: "#FFC107" };
+      if (value < 15) return { level: "Elevated", color: "#FF9800" };
+      return { level: "High", color: "#F44336" };
+    }
+
+    function populateTable(data) {
+      const tbody = document.querySelector("#dataTable tbody");
+      tbody.innerHTML = "";
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        row.forEach(cell => {
+          const td = document.createElement("td");
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateStatusBoxes(data) {
+      const latest = data[data.length - 1];
+      if (!latest) return;
+
+      const uv = parseFloat(latest[2]);
+      const pm1 = parseFloat(latest[3]);
+      const pm25 = parseFloat(latest[4]);
+      const pm4 = parseFloat(latest[5]);
+      const pm10 = parseFloat(latest[6]);
+      const nc05 = parseFloat(latest[7]);
+      const nc1 = parseFloat(latest[8]);
+      const size = parseFloat(latest[9]);
+
+      const setStatus = (id, label, value, levelFn) => {
+        const { level, color } = levelFn(value);
+        const el = document.getElementById(id);
+        el.textContent = `${label}: ${value.toFixed(1)} (${level})`;
+        el.style.backgroundColor = color;
+        el.style.color = "#fff";
+      };
+
+      setStatus("uvStatus", "UV", uv, getUVLevel);
+      setStatus("pm1Status", "PM1.0", pm1, getPMLevel);
+      setStatus("pm25Status", "PM2.5", pm25, getPMLevel);
+      setStatus("pm4Status", "PM4.0", pm4, getPMLevel);
+      setStatus("pm10Status", "PM10.0", pm10, getPMLevel);
+      setStatus("nc05Status", "NC0.5", nc05, getGenericLevel);
+      setStatus("nc1Status", "NC1.0", nc1, getGenericLevel);
+      setStatus("sizeStatus", "Size", size, getGenericLevel);
+    }
+
+    populateTable(dummyData);
+    updateStatusBoxes(dummyData);
+  </script>
+</body>
+</html>
