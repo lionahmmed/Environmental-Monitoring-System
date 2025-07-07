@@ -12,7 +12,6 @@
       --hover: #f1f1f1;
       --header: #eee;
     }
-
     body.dark {
       --bg: #121212;
       --text: #fff;
@@ -20,7 +19,6 @@
       --hover: #2c2c2c;
       --header: #2a2a2a;
     }
-
     body {
       font-family: Arial, sans-serif;
       background: var(--bg);
@@ -28,11 +26,9 @@
       margin: 0;
       padding: 20px;
     }
-
     h2 {
       text-align: center;
     }
-
     .controls {
       display: flex;
       flex-wrap: wrap;
@@ -40,7 +36,6 @@
       gap: 10px;
       margin-bottom: 15px;
     }
-
     .table-container {
       overflow-x: auto;
       background: var(--card);
@@ -48,32 +43,26 @@
       border-radius: 10px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
       min-width: 1000px;
     }
-
     th, td {
       border: 1px solid #444;
       padding: 8px;
       text-align: center;
     }
-
     th {
       background-color: var(--header);
       cursor: pointer;
     }
-
     tr:nth-child(even) {
       background-color: var(--hover);
     }
-
     tr:hover {
       background-color: #9991;
     }
-
     button {
       padding: 6px 14px;
       border: none;
@@ -82,56 +71,35 @@
       border-radius: 4px;
       cursor: pointer;
     }
-
     button:hover {
       background-color: #0056b3;
     }
-
     input[type="date"] {
       padding: 6px;
       border-radius: 4px;
       border: 1px solid #ccc;
     }
-
     .pagination {
       display: flex;
       justify-content: center;
       margin-top: 10px;
       gap: 8px;
     }
-
     .pagination button {
       background: #555;
     }
-
     .pagination button.active {
       background: #007bff;
     }
-
     .toggle-dark {
       position: absolute;
       top: 20px;
       right: 20px;
     }
-
     @media (max-width: 768px) {
       table, th, td {
         font-size: 13px;
       }
-    }
-
-    .status-info {
-      margin: 20px auto;
-      max-width: 900px;
-      background: var(--card);
-      padding: 10px 20px;
-      border-left: 5px solid #007bff;
-      border-radius: 6px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.05);
-    }
-
-    .status-info h3 {
-      margin-top: 0;
     }
   </style>
 </head>
@@ -150,11 +118,6 @@
     <label>To:</label>
     <input type="date" id="toDate">
     <button onclick="downloadCSV()">Download CSV</button>
-  </div>
-
-  <div class="status-info" id="status-box">
-    <h3>PM2.5 Interpretation</h3>
-    <p id="pm25-advice">Waiting for data...</p>
   </div>
 
   <div class="table-container">
@@ -180,12 +143,11 @@
   <div class="pagination" id="pagination"></div>
 
   <script>
-    const apiURL = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=8000";
+    const apiURL = "https://api.thingspeak.com/channels/2288702/feeds.json?api_key=2VZQPPB33FGG5IC2&results=8000";
     const tableBody = document.querySelector("#data-table tbody");
     const fromDateInput = document.getElementById("fromDate");
     const toDateInput = document.getElementById("toDate");
     const pagination = document.getElementById("pagination");
-    const statusBox = document.getElementById("pm25-advice");
     const rowsPerPage = 100;
     let allRows = [];
     let filteredRows = [];
@@ -200,6 +162,11 @@
       }).replace(",", "");
     }
 
+    function formatDate(inputDate) {
+      const [yyyy, mm, dd] = inputDate.split("-");
+      return `${dd}/${mm}/${yyyy}`;
+    }
+
     function filterRows() {
       const from = fromDateInput.value;
       const to = toDateInput.value;
@@ -208,30 +175,11 @@
         const rowDate = new Date(`${year}-${month}-${day}`);
         const fromDate = from ? new Date(from) : null;
         const toDate = to ? new Date(to) : null;
+
         if (fromDate && rowDate < fromDate) return false;
         if (toDate && rowDate > toDate) return false;
         return true;
       });
-    }
-
-    function interpretPM25(pm25) {
-      pm25 = parseFloat(pm25);
-      if (isNaN(pm25)) return "PM2.5 reading unavailable.";
-      if (pm25 <= 12) return "Good – Safe for everyone.";
-      if (pm25 <= 35) return "Moderate – OK for most, sensitive groups should limit prolonged exposure.";
-      if (pm25 <= 55) return "Unhealthy for sensitive groups – Reduce outdoor activity, use air purifier.";
-      if (pm25 <= 150) return "Unhealthy – Everyone may feel effects, wear N95 mask outdoors.";
-      if (pm25 <= 250) return "Very Unhealthy – Avoid outdoor activities, use indoor purifier.";
-      return "Hazardous – Stay indoors, filtered air only.";
-    }
-
-    function updateStatusBox() {
-      if (filteredRows.length > 0) {
-        const latestPM25 = filteredRows[0][4];
-        statusBox.textContent = interpretPM25(latestPM25);
-      } else {
-        statusBox.textContent = "No data available to analyze.";
-      }
     }
 
     function fetchData() {
@@ -254,7 +202,6 @@
           filterRows();
           currentPage = 1;
           renderTable();
-          updateStatusBox();
         })
         .catch(err => console.error("Error fetching data", err));
     }
@@ -320,14 +267,12 @@
       filterRows();
       currentPage = 1;
       renderTable();
-      updateStatusBox();
     });
 
     toDateInput.addEventListener("change", () => {
       filterRows();
       currentPage = 1;
       renderTable();
-      updateStatusBox();
     });
 
     setInterval(fetchData, 30000);
