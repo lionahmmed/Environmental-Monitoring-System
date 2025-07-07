@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Environmental Monitoring Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
       --bg: #f4f4f4;
@@ -169,6 +169,11 @@
 
   <div class="pagination" id="pagination"></div>
 
+  <h2>Air Quality Trend Graph</h2>
+  <div style="max-width: 1000px; margin: auto;">
+    <canvas id="trendChart"></canvas>
+  </div>
+
   <script>
     const apiURL = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=8000";
     const tableBody = document.querySelector("#data-table tbody");
@@ -177,6 +182,7 @@
     const pagination = document.getElementById("pagination");
     const rowsPerPage = 100;
     let allRows = [], filteredRows = [], currentPage = 1, sortDir = true;
+    let chartInstance = null;
 
     function toBDTime(utcString) {
       const date = new Date(utcString);
@@ -216,9 +222,9 @@
           currentPage = 1;
           renderTable();
           updateStatusBoxes(filteredRows);
+          renderChart(filteredRows.slice(0, 200).reverse());
         })
         .catch(err => console.error("Error fetching data", err));
-      renderChart(filteredRows.slice(0, 200).reverse());
     }
 
     function renderTable() {
@@ -276,15 +282,6 @@
       const latest = data[0];
       if (!latest) return;
 
-      const uv = parseFloat(latest[2]);
-      const pm1 = parseFloat(latest[3]);
-      const pm25 = parseFloat(latest[4]);
-      const pm4 = parseFloat(latest[5]);
-      const pm10 = parseFloat(latest[6]);
-      const nc05 = parseFloat(latest[7]);
-      const nc1 = parseFloat(latest[8]);
-      const size = parseFloat(latest[9]);
-
       const setStatus = (id, label, value, levelFn) => {
         if (isNaN(value)) return;
         const { level, color } = levelFn(value);
@@ -294,31 +291,97 @@
       };
 
       const getPMLevel = v => v <= 12 ? { level: "Good", color: "#4CAF50" } :
-                             v <= 35 ? { level: "Moderate", color: "#FFC107" } :
-                             v <= 55 ? { level: "Sensitive", color: "#FF9800" } :
-                             v <= 150 ? { level: "Unhealthy", color: "#F44336" } :
-                             v <= 250 ? { level: "Very Unhealthy", color: "#9C27B0" } :
-                             { level: "Hazardous", color: "#B71C1C" };
+                               v <= 35 ? { level: "Moderate", color: "#FFC107" } :
+                               v <= 55 ? { level: "Sensitive", color: "#FF9800" } :
+                               v <= 150 ? { level: "Unhealthy", color: "#F44336" } :
+                               v <= 250 ? { level: "Very Unhealthy", color: "#9C27B0" } :
+                               { level: "Hazardous", color: "#B71C1C" };
 
       const getUVLevel = v => v < 3 ? { level: "Low", color: "#4CAF50" } :
-                             v < 6 ? { level: "Moderate", color: "#FFC107" } :
-                             v < 8 ? { level: "High", color: "#FF9800" } :
-                             v < 11 ? { level: "Very High", color: "#F44336" } :
-                             { level: "Extreme", color: "#9C27B0" };
+                               v < 6 ? { level: "Moderate", color: "#FFC107" } :
+                               v < 8 ? { level: "High", color: "#FF9800" } :
+                               v < 11 ? { level: "Very High", color: "#F44336" } :
+                               { level: "Extreme", color: "#9C27B0" };
 
       const getGenericLevel = v => v < 1 ? { level: "Low", color: "#4CAF50" } :
-                                  v < 5 ? { level: "Moderate", color: "#FFC107" } :
-                                  v < 15 ? { level: "Elevated", color: "#FF9800" } :
-                                  { level: "High", color: "#F44336" };
+                                    v < 5 ? { level: "Moderate", color: "#FFC107" } :
+                                    v < 15 ? { level: "Elevated", color: "#FF9800" } :
+                                    { level: "High", color: "#F44336" };
 
-      setStatus("uvStatus", "UV", uv, getUVLevel);
-      setStatus("pm1Status", "PM1.0", pm1, getPMLevel);
-      setStatus("pm25Status", "PM2.5", pm25, getPMLevel);
-      setStatus("pm4Status", "PM4.0", pm4, getPMLevel);
-      setStatus("pm10Status", "PM10.0", pm10, getPMLevel);
-      setStatus("nc05Status", "NC0.5", nc05, getGenericLevel);
-      setStatus("nc1Status", "NC1.0", nc1, getGenericLevel);
-      setStatus("sizeStatus", "Size", size, getGenericLevel);
+      setStatus("uvStatus", "UV", parseFloat(latest[2]), getUVLevel);
+      setStatus("pm1Status", "PM1.0", parseFloat(latest[3]), getPMLevel);
+      setStatus("pm25Status", "PM2.5", parseFloat(latest[4]), getPMLevel);
+      setStatus("pm4Status", "PM4.0", parseFloat(latest[5]), getPMLevel);
+      setStatus("pm10Status", "PM10.0", parseFloat(latest[6]), getPMLevel);
+      setStatus("nc05Status", "NC0.5", parseFloat(latest[7]), getGenericLevel);
+      setStatus("nc1Status", "NC1.0", parseFloat(latest[8]), getGenericLevel);
+      setStatus("sizeStatus", "Size", parseFloat(latest[9]), getGenericLevel);
+    }
+
+    function renderChart(dataRows) {
+      const timestamps = dataRows.map(r => r[1]);
+      const pm25 = dataRows.map(r => parseFloat(r[4]) || null);
+      const pm10 = dataRows.map(r => parseFloat(r[6]) || null);
+      const uv = dataRows.map(r => parseFloat(r[2]) || null);
+
+      const ctx = document.getElementById("trendChart").getContext("2d");
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: timestamps,
+          datasets: [
+            {
+              label: "PM2.5",
+              data: pm25,
+              borderColor: "rgba(255, 99, 132, 1)",
+              backgroundColor: "rgba(255, 99, 132, 0.2)",
+              fill: false,
+              tension: 0.3
+            },
+            {
+              label: "PM10",
+              data: pm10,
+              borderColor: "rgba(54, 162, 235, 1)",
+              backgroundColor: "rgba(54, 162, 235, 0.2)",
+              fill: false,
+              tension: 0.3
+            },
+            {
+              label: "UV Index",
+              data: uv,
+              borderColor: "rgba(255, 206, 86, 1)",
+              backgroundColor: "rgba(255, 206, 86, 0.2)",
+              fill: false,
+              tension: 0.3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              title: { display: true, text: "Timestamp" },
+              ticks: {
+                maxRotation: 90,
+                minRotation: 45,
+                autoSkip: true,
+                maxTicksLimit: 15
+              }
+            },
+            y: {
+              title: { display: true, text: "Sensor Value" }
+            }
+          },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top'
+            }
+          }
+        }
+      });
     }
 
     document.getElementById("darkToggle").addEventListener("change", e => {
@@ -328,83 +391,8 @@
     fromDateInput.addEventListener("change", () => { filterRows(); currentPage = 1; renderTable(); });
     toDateInput.addEventListener("change", () => { filterRows(); currentPage = 1; renderTable(); });
 
-    setInterval(fetchData, 30000);
+    setInterval(fetchData, 30000);  // auto-refresh every 30 seconds
     window.onload = fetchData;
   </script>
-  <h2>Air Quality Trend Graph</h2>
-<div style="max-width: 1000px; margin: auto;">
-  <canvas id="trendChart"></canvas>
-</div>
-
 </body>
-
-  let chartInstance = null;
-
-function renderChart(dataRows) {
-  const timestamps = dataRows.map(r => r[1]);
-  const pm25 = dataRows.map(r => parseFloat(r[4]) || null);
-  const pm10 = dataRows.map(r => parseFloat(r[6]) || null);
-  const uv = dataRows.map(r => parseFloat(r[2]) || null);
-
-  const ctx = document.getElementById("trendChart").getContext("2d");
-
-  if (chartInstance) chartInstance.destroy();
-
-  chartInstance = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: timestamps,
-      datasets: [
-        {
-          label: "PM2.5",
-          data: pm25,
-          borderColor: "rgba(255, 99, 132, 1)",
-          backgroundColor: "rgba(255, 99, 132, 0.2)",
-          fill: false,
-          tension: 0.3
-        },
-        {
-          label: "PM10",
-          data: pm10,
-          borderColor: "rgba(54, 162, 235, 1)",
-          backgroundColor: "rgba(54, 162, 235, 0.2)",
-          fill: false,
-          tension: 0.3
-        },
-        {
-          label: "UV Index",
-          data: uv,
-          borderColor: "rgba(255, 206, 86, 1)",
-          backgroundColor: "rgba(255, 206, 86, 0.2)",
-          fill: false,
-          tension: 0.3
-        }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        x: {
-          title: { display: true, text: "Timestamp" },
-          ticks: {
-            maxRotation: 90,
-            minRotation: 45,
-            autoSkip: true,
-            maxTicksLimit: 15
-          }
-        },
-        y: {
-          title: { display: true, text: "Sensor Value" }
-        }
-      },
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top'
-        }
-      }
-    }
-  });
-}
-
 </html>
