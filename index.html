@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Environmental Monitoring Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #f4f4f4;
+      --text: #000;
+      --card: #fff;
+      --hover: #f1f1f1;
+      --header: #eee;
+    }
+    body.dark {
+      --bg: #121212;
+      --text: #fff;
+      --card: #1e1e1e;
+      --hover: #2c2c2c;
+      --header: #2a2a2a;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 15px;
+    }
+    h1, h2 {
+      text-align: center;
+      margin: 0.5em 0;
+    }
+    .toggle-dark {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      font-size: 14px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin: 15px 0;
+      align-items: center;
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+    label {
+      white-space: nowrap;
+      font-size: 14px;
+    }
+    input[type="date"], button, select {
+      padding: 6px 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      height: 34px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    .status-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin: 15px 0;
+    }
+    .status-card {
+      padding: 8px 12px;
+      border-radius: 6px;
+      background-color: #eee;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      font-weight: bold;
+      color: #fff;
+      min-width: 120px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .table-container {
+      overflow-x: auto;
+      background: var(--card);
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+      -webkit-overflow-scrolling: touch;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 700px;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 6px;
+      text-align: center;
+      font-size: 13px;
+    }
+    th {
+      background-color: var(--header);
+      cursor: pointer;
+      position: sticky;
+      top: 0;
+    }
+    tr:nth-child(even) {
+      background-color: var(--hover);
+    }
+    tr:hover {
+      background-color: #9991;
+    }
+    .pagination {
+      display: flex;
+      justify-content: center;
+      margin: 10px 0;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .pagination button, .pagination span {
+      padding: 4px 8px;
+      min-width: 32px;
+      font-size: 13px;
+    }
+    .pagination button {
+      background: #555;
+    }
+    .pagination button.active {
+      background: #007bff;
+    }
+    .chart-container {
+      background: var(--card);
+      padding: 12px;
+      border-radius: 8px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    canvas {
+      margin-bottom: 15px;
+      max-width: 100%;
+    }
+    @media (max-width: 480px) {
+      body {
+        padding: 10px;
+      }
+      h1 {
+        font-size: 1.5em;
+        margin-top: 30px;
+      }
+      h2 {
+        font-size: 1.2em;
+      }
+      .status-card {
+        min-width: calc(50% - 15px);
+        padding: 6px 8px;
+        font-size: 12px;
+      }
+      .controls {
+        gap: 6px;
+      }
+      input[type="date"], button, select {
+        padding: 5px 8px;
+        font-size: 13px;
+      }
+      .toggle-dark {
+        top: 10px;
+        right: 10px;
+        font-size: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toggle-dark">
+    <label>
+      <input type="checkbox" id="darkToggle"> Dark Mode
+    </label>
+  </div>
+
+  <h1>Air Quality & Environmental Dashboard</h1>
+
+  <div class="status-summary" id="statusBox">
+    <div class="status-card" id="uvStatus">UV: -</div>
+    <div class="status-card" id="pm1Status">PM1.0: -</div>
+    <div class="status-card" id="pm25Status">PM2.5: -</div>
+    <div class="status-card" id="pm4Status">PM4.0: -</div>
+    <div class="status-card" id="pm10Status">PM10.0: -</div>
+    <div class="status-card" id="nc05Status">NC0.5: -</div>
+    <div class="status-card" id="nc1Status">NC1.0: -</div>
+    <div class="status-card" id="sizeStatus">Particle Size: -</div>
+  </div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>From:</label>
+      <input type="date" id="fromDate">
+    </div>
+    <div class="control-group">
+      <label>To:</label>
+      <input type="date" id="toDate">
+    </div>
+    <div class="control-group">
+      <button onclick="downloadCSV()">Download CSV</button>
+      <button onclick="toggleView()">Toggle View</button>
+      <select id="chartLimit">
+        <option value="100">100 readings</option>
+        <option value="200">200 readings</option>
+        <option value="500">500 readings</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="tableView">
+    <div class="table-container">
+      <table id="data-table">
+        <thead>
+          <tr>
+            <th onclick="sortTable(0)">ID</th>
+            <th onclick="sortTable(1)">Timestamp</th>
+            <th onclick="sortTable(2)">UV</th>
+            <th onclick="sortTable(3)">PM1.0</th>
+            <th onclick="sortTable(4)">PM2.5</th>
+            <th onclick="sortTable(5)">PM4.0</th>
+            <th onclick="sortTable(6)">PM10</th>
+            <th onclick="sortTable(7)">NC0.5</th>
+            <th onclick="sortTable(8)">NC1.0</th>
+            <th onclick="sortTable(9)">Size</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="pagination" id="pagination"></div>
+  </div>
+
+  <div id="chartView" style="display: none;">
+    <div class="chart-container">
+      <h2>Combined Sensor Trends</h2>
+      <canvas id="combinedChart"></canvas>
+    </div>
+    
+    <div class="chart-container">
+      <h2>Individual Sensor Trends</h2>
+      <canvas id="uvChart"></canvas>
+      <canvas id="pm1Chart"></canvas>
+      <canvas id="pm25Chart"></canvas>
+      <canvas id="pm4Chart"></canvas>
+      <canvas id="pm10Chart"></canvas>
+      <canvas id="nc05Chart"></canvas>
+      <canvas id="nc1Chart"></canvas>
+      <canvas id="sizeChart"></canvas>
+    </div>
+  </div>
+
+  <script>
+    const apiURL = "https://api.thingspeak.com/channels/3000897/feeds.json?api_key=FANJE0FE8G3O53WH&results=8000";
+    const tableBody = document.querySelector("#data-table tbody");
+    const fromDateInput = document.getElementById("fromDate");
+    const toDateInput = document.getElementById("toDate");
+    const pagination = document.getElementById("pagination");
+    const chartLimit = document.getElementById("chartLimit");
+    const rowsPerPage = 50; // Reduced for better mobile experience
+    let allRows = [], filteredRows = [], currentPage = 1, sortDir = true;
+    let charts = {};
+
+    // Set default date range to last 7 days
+    function setDefaultDateRange() {
+      const today = new Date();
+      const weekAgo = new Date();
+      weekAgo.setDate(today.getDate() - 7);
+      
+      // Format as YYYY-MM-DD
+      const formatDate = (date) => date.toISOString().split('T')[0];
+      
+      fromDateInput.value = formatDate(weekAgo);
+      toDateInput.value = formatDate(today);
+    }
+
+    function toBDTime(utcString) {
+      const date = new Date(utcString);
+      return date.toLocaleString("en-GB", { timeZone: "Asia/Dhaka", hour12: false }).replace(",", "");
+    }
+
+    function filterRows() {
+      const from = fromDateInput.value;
+      const to = toDateInput.value;
+      filteredRows = allRows.filter(row => {
+        const [day, month, year] = row[1].split(" ")[0].split("/");
+        const rowDate = new Date(`${year}-${month}-${day}`);
+        if (from && rowDate < new Date(from)) return false;
+        if (to && rowDate > new Date(`${to}T23:59:59`)) return false;
+        return true;
+      });
+    }
+
+    function fetchData() {
+      fetch(apiURL)
+        .then(res => res.json())
+        .then(data => {
+          const feeds = data.feeds.reverse();
+          allRows = feeds.map(feed => [
+            feed.entry_id,
+            toBDTime(feed.created_at),
+            feed.field1 || "-",
+            feed.field2 || "-",
+            feed.field3 || "-",
+            feed.field4 || "-",
+            feed.field5 || "-",
+            feed.field6 || "-",
+            feed.field7 || "-",
+            feed.field8 || "-"
+          ]);
+          
+          // Set default dates if not already set
+          if (!fromDateInput.value || !toDateInput.value) {
+            setDefaultDateRange();
+          }
+          
+          filterRows();
+          currentPage = 1;
+          renderTable();
+          updateStatusBoxes(filteredRows);
+          renderAllCharts();
+        })
+        .catch(err => console.error("Error fetching data", err));
+    }
+
+    function renderTable() {
+      const start = (currentPage - 1) * rowsPerPage;
+      const rows = filteredRows.slice(start, start + rowsPerPage);
+      tableBody.innerHTML = "";
+      rows.forEach(row => {
+        const tr = document.createElement("tr");
+        // Shorten timestamp display for mobile
+        const timestamp = row[1].replace(/(\d+\/\d+\/\d+) (\d+:\d+):\d+/, "$1 $2");
+        const cells = [
+          row[0], // ID
+          timestamp,
+          ...row.slice(2) // Rest of the values
+        ];
+        tr.innerHTML = cells.map(cell => `<td>${cell}</td>`).join("");
+        tableBody.appendChild(tr);
+      });
+      renderPagination();
+    }
+
+    function renderPagination() {
+      const pageCount = Math.ceil(filteredRows.length / rowsPerPage);
+      pagination.innerHTML = "";
+      
+      // Previous button
+      const prevBtn = document.createElement("button");
+      prevBtn.textContent = "«";
+      prevBtn.disabled = currentPage === 1;
+      prevBtn.onclick = () => {
+        if (currentPage > 1) {
+          currentPage--;
+          renderTable();
+        }
+      };
+      pagination.appendChild(prevBtn);
+      
+      // Page buttons - show limited set for mobile
+      const maxVisiblePages = window.innerWidth < 480 ? 3 : 5;
+      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages/2));
+      let endPage = Math.min(pageCount, startPage + maxVisiblePages - 1);
+      
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      if (startPage > 1) {
+        const firstBtn = document.createElement("button");
+        firstBtn.textContent = "1";
+        firstBtn.onclick = () => {
+          currentPage = 1;
+          renderTable();
+        };
+        pagination.appendChild(firstBtn);
+        
+        if (startPage > 2) {
+          const ellipsis = document.createElement("span");
+          ellipsis.textContent = "...";
+          pagination.appendChild(ellipsis);
+        }
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        const btn = document.createElement("button");
+        btn.textContent = i;
+        if (i === currentPage) btn.classList.add("active");
+        btn.onclick = () => {
+          currentPage = i;
+          renderTable();
+        };
+        pagination.appendChild(btn);
+      }
+      
+      if (endPage < pageCount) {
+        if (endPage < pageCount - 1) {
+          const ellipsis = document.createElement("span");
+          ellipsis.textContent = "...";
+          pagination.appendChild(ellipsis);
+        }
+        
+        const lastBtn = document.createElement("button");
+        lastBtn.textContent = pageCount;
+        lastBtn.onclick = () => {
+          currentPage = pageCount;
+          renderTable();
+        };
+        pagination.appendChild(lastBtn);
+      }
+      
+      // Next button
+      const nextBtn = document.createElement("button");
+      nextBtn.textContent = "»";
+      nextBtn.disabled = currentPage === pageCount;
+      nextBtn.onclick = () => {
+        if (currentPage < pageCount) {
+          currentPage++;
+          renderTable();
+        }
+      };
+      pagination.appendChild(nextBtn);
+    }
+
+    function sortTable(col) {
+      filteredRows.sort((a, b) => {
+        const aVal = a[col], bVal = b[col];
+        const aNum = parseFloat(aVal), bNum = parseFloat(bVal);
+        return (!isNaN(aNum) && !isNaN(bNum))
+          ? (sortDir ? aNum - bNum : bNum - aNum)
+          : (sortDir ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal));
+      });
+      sortDir = !sortDir;
+      renderTable();
+    }
+
+    function downloadCSV() {
+      const from = fromDateInput.value || 'all';
+      const to = toDateInput.value || 'all';
+      const dateRange = from === 'all' && to === 'all' ? 'all-data' : `${from}_to_${to}`;
+      
+      const rows = [["Entry ID", "Timestamp", "UV", "PM1.0", "PM2.5", "PM4.0", "PM10", "NC0.5", "NC1.0", "Particle Size"], ...filteredRows];
+      const csv = rows.map(r => r.map(c => `"${c}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `AirQuality_${dateRange}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function updateStatusBoxes(data) {
+      const latest = data[0];
+      if (!latest) return;
+
+      const setStatus = (id, label, value, levelFn) => {
+        if (isNaN(value)) return;
+        const { level, color } = levelFn(value);
+        const el = document.getElementById(id);
+        el.textContent = `${label}: ${value.toFixed(1)} (${level})`;
+        el.style.backgroundColor = color;
+      };
+
+      const getPMLevel = v => v <= 12 ? { level: "Good", color: "#4CAF50" } :
+                               v <= 35 ? { level: "Moderate", color: "#FFC107" } :
+                               v <= 55 ? { level: "Sensitive", color: "#FF9800" } :
+                               v <= 150 ? { level: "Unhealthy", color: "#F44336" } :
+                               v <= 250 ? { level: "Very Unhealthy", color: "#9C27B0" } :
+                               { level: "Hazardous", color: "#B71C1C" };
+
+      const getUVLevel = v => v < 3 ? { level: "Low", color: "#4CAF50" } :
+                               v < 6 ? { level: "Moderate", color: "#FFC107" } :
+                               v < 8 ? { level: "High", color: "#FF9800" } :
+                               v < 11 ? { level: "Very High", color: "#F44336" } :
+                               { level: "Extreme", color: "#9C27B0" };
+
+      const getGenericLevel = v => v < 1 ? { level: "Low", color: "#4CAF50" } :
+                                    v < 5 ? { level: "Moderate", color: "#FFC107" } :
+                                    v < 15 ? { level: "Elevated", color: "#FF9800" } :
+                                    { level: "High", color: "#F44336" };
+
+      setStatus("uvStatus", "UV", parseFloat(latest[2]), getUVLevel);
+      setStatus("pm1Status", "PM1.0", parseFloat(latest[3]), getPMLevel);
+      setStatus("pm25Status", "PM2.5", parseFloat(latest[4]), getPMLevel);
+      setStatus("pm4Status", "PM4.0", parseFloat(latest[5]), getPMLevel);
+      setStatus("pm10Status", "PM10.0", parseFloat(latest[6]), getPMLevel);
+      setStatus("nc05Status", "NC0.5", parseFloat(latest[7]), getGenericLevel);
+      setStatus("nc1Status", "NC1.0", parseFloat(latest[8]), getGenericLevel);
+      setStatus("sizeStatus", "Size", parseFloat(latest[9]), getGenericLevel);
+    }
+
+    function renderAllCharts() {
+      const limit = parseInt(chartLimit.value);
+      const chartData = filteredRows.slice(0, limit).reverse();
+      
+      const timestamps = chartData.map(r => {
+        // Shorten timestamp for chart labels
+        const [date, time] = r[1].split(" ");
+        return `${date} ${time.substring(0, 5)}`;
+      });
+      
+      const data = {
+        uv: chartData.map(r => parseFloat(r[2]) || null),
+        pm1: chartData.map(r => parseFloat(r[3]) || null),
+        pm25: chartData.map(r => parseFloat(r[4]) || null),
+        pm4: chartData.map(r => parseFloat(r[5]) || null),
+        pm10: chartData.map(r => parseFloat(r[6]) || null),
+        nc05: chartData.map(r => parseFloat(r[7]) || null),
+        nc1: chartData.map(r => parseFloat(r[8]) || null),
+        size: chartData.map(r => parseFloat(r[9]) || null)
+      };
+      
+      // Destroy existing charts if they exist
+      Object.values(charts).forEach(chart => {
+        if (chart) chart.destroy();
+      });
+      
+      // Combined chart (simplified for mobile)
+      const combinedDatasets = window.innerWidth < 480 ? [
+        { label: "PM2.5", data: data.pm25, borderColor: "#3498DB", backgroundColor: "#3498DB33", fill: false },
+        { label: "PM10", data: data.pm10, borderColor: "#E67E22", backgroundColor: "#E67E2233", fill: false }
+      ] : [
+        { label: "UV", data: data.uv, borderColor: "#FFD700", backgroundColor: "#FFD70033", fill: false },
+        { label: "PM1.0", data: data.pm1, borderColor: "#8E44AD", backgroundColor: "#8E44AD33", fill: false },
+        { label: "PM2.5", data: data.pm25, borderColor: "#3498DB", backgroundColor: "#3498DB33", fill: false },
+        { label: "PM10.0", data: data.pm10, borderColor: "#E67E22", backgroundColor: "#E67E2233", fill: false }
+      ];
+      
+      charts.combined = new Chart(document.getElementById("combinedChart"), {
+        type: "line",
+        data: {
+          labels: timestamps,
+          datasets: combinedDatasets
+        },
+        options: getChartOptions("Combined Air Quality Metrics")
+      });
+      
+      // Individual charts
+      charts.uv = createIndividualChart("uvChart", timestamps, data.uv, "UV Index", "#FFD700");
+      charts.pm1 = createIndividualChart("pm1Chart", timestamps, data.pm1, "PM 1.0", "#8E44AD");
+      charts.pm25 = createIndividualChart("pm25Chart", timestamps, data.pm25, "PM 2.5", "#3498DB");
+      charts.pm4 = createIndividualChart("pm4Chart", timestamps, data.pm4, "PM 4.0", "#1ABC9C");
+      charts.pm10 = createIndividualChart("pm10Chart", timestamps, data.pm10, "PM 10.0", "#E67E22");
+      charts.nc05 = createIndividualChart("nc05Chart", timestamps, data.nc05, "NC 0.5", "#C0392B");
+      charts.nc1 = createIndividualChart("nc1Chart", timestamps, data.nc1, "NC 1.0", "#2ECC71");
+      charts.size = createIndividualChart("sizeChart", timestamps, data.size, "Particle Size", "#7F8C8D");
+    }
+    
+    function createIndividualChart(canvasId, labels, data, label, color) {
+      return new Chart(document.getElementById(canvasId), {
+        type: "line",
+        data: {
+          labels,
+          datasets: [{
+            label,
+            data,
+            borderColor: color,
+            backgroundColor: color + '33',
+            fill: false,
+            tension: 0.3
+          }]
+        },
+        options: getChartOptions(label)
+      });
+    }
+    
+    function getChartOptions(title) {
+      const isMobile = window.innerWidth < 480;
+      return {
+        responsive: true,
+        maintainAspectRatio: true,
+        scales: {
+          x: {
+            title: { display: true, text: "Timestamp" },
+            ticks: {
+              maxRotation: isMobile ? 60 : 45,
+              minRotation: isMobile ? 45 : 30,
+              autoSkip: true,
+              maxTicksLimit: isMobile ? 8 : 15
+            }
+          },
+          y: { 
+            title: { display: true, text: title + " Value" },
+            beginAtZero: false
+          }
+        },
+        plugins: {
+          legend: { 
+            display: true, 
+            position: 'top',
+            labels: {
+              boxWidth: 12,
+              font: {
+                size: isMobile ? 10 : 12
+              }
+            }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            bodyFont: {
+              size: isMobile ? 10 : 12
+            }
+          }
+        },
+        interaction: {
+          mode: 'nearest',
+          axis: 'x',
+          intersect: false
+        }
+      };
+    }
+
+    function toggleView() {
+      const tableView = document.getElementById("tableView");
+      const chartView = document.getElementById("chartView");
+      
+      if (tableView.style.display === "none") {
+        tableView.style.display = "block";
+        chartView.style.display = "none";
+      } else {
+        tableView.style.display = "none";
+        chartView.style.display = "block";
+        renderAllCharts();
+      }
+    }
+
+    // Initialize
+    document.getElementById("darkToggle").addEventListener("change", e => {
+      document.body.classList.toggle("dark", e.target.checked);
+    });
+
+    fromDateInput.addEventListener("change", () => { 
+      filterRows(); 
+      currentPage = 1; 
+      renderTable(); 
+      if (document.getElementById("chartView").style.display !== "none") {
+        renderAllCharts();
+      }
+    });
+    
+    toDateInput.addEventListener("change", () => { 
+      filterRows(); 
+      currentPage = 1; 
+      renderTable();
+      if (document.getElementById("chartView").style.display !== "none") {
+        renderAllCharts();
+      }
+    });
+    
+    chartLimit.addEventListener("change", () => {
+      if (document.getElementById("chartView").style.display !== "none") {
+        renderAllCharts();
+      }
+    });
+
+    // Handle window resize for better mobile experience
+    window.addEventListener('resize', () => {
+      if (document.getElementById("chartView").style.display !== "none") {
+        renderAllCharts();
+      }
+    });
+
+    setInterval(fetchData, 30000);  // auto-refresh every 30 seconds
+    
+    // Initial load
+    setDefaultDateRange();
+    window.onload = fetchData;
+  </script>
+</body>
+</html>
